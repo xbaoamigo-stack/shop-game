@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🏪 菜鳥飲料攤</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; overflow-x: hidden; }
+.header { background: linear-gradient(135deg, #e94560, #0f3460); padding: 15px; text-align: center; font-size: 1.3em; font-weight: bold; }
+.dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
+.stat { background: #16213e; border-radius: 10px; padding: 12px; text-align: center; }
+.stat-value { font-size: 1.5em; color: #e94560; }
+.stat-label { font-size: 0.8em; color: #888; }
+.game-area { padding: 10px; }
+.customer { background: #16213e; border-radius: 10px; padding: 15px; margin-bottom: 10px; }
+.order { font-size: 1.2em; margin: 10px 0; }
+.buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.btn { padding: 15px; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; transition: transform 0.1s; }
+.btn:active { transform: scale(0.95); }
+.btn-drink { background: #e94560; color: #fff; }
+.btn-snack { background: #0f3460; color: #fff; }
+.serve-btn { background: #4ecca3; color: #fff; width: 100%; margin-top: 10px; font-size: 1.1em; }
+.day-btn { background: #ffd369; color: #333; width: 100%; margin-top: 10px; font-size: 1.1em; }
+.log { background: #0f3460; border-radius: 10px; padding: 10px; margin: 10px; max-height: 120px; overflow-y: auto; font-size: 0.85em; }
+.log-entry { padding: 3px 0; border-bottom: 1px solid #1a1a2e; }
+.msg { text-align: center; padding: 10px; font-size: 1.1em; color: #4ecca3; min-height: 50px; }
+</style>
+</head>
+<body>
+<div class="header">🏪 菜鳥飲料攤</div>
+
+<div class="dashboard">
+  <div class="stat"><div class="stat-value" id="money">$50</div><div class="stat-label">現金</div></div>
+  <div class="stat"><div class="stat-value" id="day">第1天</div><div class="stat-label">天數</div></div>
+  <div class="stat"><div class="stat-value" id="served">0</div><div class="stat-label">服務人數</div></div>
+  <div class="stat"><div class="stat-value" id="rep">★★★</div><div class="stat-label">名聲</div></div>
+</div>
+
+<div class="msg" id="msg">點擊「開店」開始營業！</div>
+
+<div class="game-area">
+  <div class="customer" id="customer-area" style="display:none">
+    <div class="order" id="order-text">顧客點單：</div>
+    <div class="buttons">
+      <button class="btn btn-drink" onclick="addToOrder('🧋')">🧋 飲料</button>
+      <button class="btn btn-drink" onclick="addToOrder('🥤')">🥤 汽水</button>
+      <button class="btn btn-snack" onclick="addToOrder('🍔')">🍔 漢堡</button>
+      <button class="btn btn-snack" onclick="addToOrder('🍟')">🍟 薯條</button>
+    </div>
+    <div id="current-order" style="margin:10px 0;font-size:1.1em;">📝 訂單：-</div>
+    <button class="btn serve-btn" onclick="serveCustomer()">✅ 出餐</button>
+  </div>
+  
+  <button class="btn day-btn" id="day-btn" onclick="startDay()">☀️ 開店營業</button>
+</div>
+
+<div class="log" id="log"><div class="log-entry">📋 遊戲日誌...</div></div>
+
+<script>
+let money = 50;
+let day = 1;
+let served = 0;
+let rep = 50;
+let currentOrder = [];
+let customerWants = [];
+let customerPatience = 100;
+
+const ITEMS = {
+  '🧋': { name: '奶茶', cost: 15, price: 35 },
+  '🥤': { name: '汽水', cost: 10, price: 25 },
+  '🍔': { name: '漢堡', cost: 25, price: 55 },
+  '🍟': { name: '薯條', cost: 12, price: 30 }
+};
+
+function log(msg) {
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = '<div class="log-entry">• ' + msg + '</div>' + logEl.innerHTML;
+}
+
+function updateUI() {
+  document.getElementById('money').textContent = '$' + money;
+  document.getElementById('day').textContent = '第' + day + '天';
+  document.getElementById('served').textContent = served;
+  let stars = rep >= 80 ? '★★★★' : rep >= 50 ? '★★★' : rep >= 25 ? '★★' : '★';
+  document.getElementById('rep').textContent = stars;
+}
+
+function generateOrder() {
+  const items = Object.keys(ITEMS);
+  let count = Math.floor(Math.random() * 2) + 1;
+  customerWants = [];
+  for (let i = 0; i < count; i++) {
+    customerWants.push(items[Math.floor(Math.random() * items.length)]);
+  }
+  document.getElementById('order-text').textContent = '👤 顧客要：' + customerWants.join(' ');
+  currentOrder = [];
+  document.getElementById('current-order').textContent = '📝 訂單：-';
+  customerPatience = 100;
+}
+
+function addToOrder(item) {
+  currentOrder.push(item);
+  document.getElementById('current-order').textContent = '📝 訂單：' + currentOrder.join(' ');
+  customerPatience -= 15;
+}
+
+function serveCustomer() {
+  if (customerWants.length === 0) return;
+  
+  let correct = true;
+  let tempWants = [...customerWants];
+  for (let item of currentOrder) {
+    let idx = tempWants.indexOf(item);
+    if (idx !== -1) tempWants.splice(idx, 1);
+    else correct = false;
+  }
+  if (tempWants.length > 0) correct = false;
+  
+  if (correct) {
+    let total = 0;
+    for (let item of customerWants) total += ITEMS[item].price;
+    let tip = customerPatience > 70 ? Math.floor(total * 0.2) : 0;
+    money += total + tip;
+    served++;
+    rep = Math.min(100, rep + 5);
+    let msg = tip > 0 ? '🎉 完美！賺了 $' + (total + tip) + ' (含小費 $' + tip + ')' : '✅ 正確！賺了 $' + total;
+    document.getElementById('msg').textContent = msg;
+    log(msg);
+  } else {
+    rep = Math.max(0, rep - 10);
+    document.getElementById('msg').textContent = '❌ 訂單錯了！顧客不高興';
+    log('❌ 訂錯單，名聲 -10');
+  }
+  
+  updateUI();
+  setTimeout(() => {
+    document.getElementById('customer-area').style.display = 'none';
+    document.getElementById('day-btn').style.display = 'block';
+    document.getElementById('msg').textContent = '☀️ 當日營業結束';
+  }, 1500);
+}
+
+function startDay() {
+  document.getElementById('day-btn').style.display = 'none';
+  document.getElementById('customer-area').style.display = 'block';
+  generateOrder();
+  
+  let customers = 3 + Math.floor(Math.random() * 3);
+  let servedToday = 0;
+  
+  document.getElementById('msg').textContent = '👤 第 1 位顧客來了！';
+  
+  // Simple patience countdown
+  let patienceTimer = setInterval(() => {
+    customerPatience -= 5;
+    if (customerPatience <= 0) {
+      clearInterval(patienceTimer);
+      rep = Math.max(0, rep - 15);
+      log('⏰ 顧客等太久，怒了！名聲 -15');
+      updateUI();
+      document.getElementById('msg').textContent = '⏰ 顧客等不及走了！';
+    }
+  }, 1000);
+  
+  updateUI();
+}
+
+function endDay() {
+  day++;
+  let expense = 20 + Math.floor(Math.random() * 30);
+  money -= expense;
+  log('💸 房租水電：-$' + expense);
+  
+  // Random event
+  let event = Math.random();
+  if (event < 0.3) {
+    let bonus = Math.floor(Math.random() * 30) + 10;
+    money += bonus;
+    log('🎁 路上撿到 $' + bonus + '！');
+  } else if (event < 0.5) {
+    rep = Math.max(0, rep - 10);
+    log('📢 被附近攤販抱怨，名聲 -10');
+  }
+  
+  if (money <= 0) {
+    document.getElementById('msg').textContent = '💀 破產了！遊戲結束';
+    log('💀 遊戲結束！最終資產：$' + money);
+    document.getElementById('day-btn').style.display = 'none';
+    document.getElementById('customer-area').style.display = 'none';
+    return;
+  }
+  
+  updateUI();
+  document.getElementById('day-btn').textContent = '☀️ 第 ' + day + ' 天 - 開店營業';
+  document.getElementById('day-btn').style.display = 'block';
+  document.getElementById('customer-area').style.display = 'none';
+  document.getElementById('msg').textContent = '☀️ 第 ' + day + ' 天開始！';
+}
+
+document.getElementById('day-btn').onclick = () => {
+  startDay();
+  document.getElementById('day-btn').textContent = '🌙 關店休息';
+  document.getElementById('day-btn').onclick = endDay;
+};
+
+updateUI();
+</script>
+</body>
+</html>
